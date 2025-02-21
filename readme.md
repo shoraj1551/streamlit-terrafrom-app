@@ -35,12 +35,12 @@ Ensure you have the following installed:
 ### 2️⃣ Clone the Repository
 ```bash
 git clone https://github.com/your-username/streamlit-terraform-app.git
-cd streamlit-terraform-app'''
+cd streamlit-terraform-app```
 
 ### 3️⃣ Set Up Virtual Environment
-'''bash
-  Copy
-  Edit
-  python -m venv venv
-  source venv/bin/activate   # On Windows: venv\Scripts\activate
-  pip install -r requirements.txt'''
+```bash
+Copy
+Edit
+python -m venv venv
+source venv/bin/activate   # On Windows: venv\Scripts\activate
+pip install -r requirements.txt```
