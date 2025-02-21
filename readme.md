@@ -33,10 +33,12 @@ Ensure you have the following installed:
 - **Cloud SDKs** (AWS CLI, Azure CLI, GCP SDK) as needed
 
 ### 2️⃣ Clone the Repository
+bash
 git clone https://github.com/your-username/streamlit-terraform-app.git
 cd streamlit-terraform-app
 
 ### 3️⃣ Set Up Virtual Environment
+bash
 Copy
 Edit
 python -m venv venv
@@ -44,11 +46,13 @@ source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 ### 4️⃣ Run the Streamlit App
+bash
 Copy
 Edit
 streamlit run app/main.py
 
 ### 5️⃣ Terraform Setup & Deployment
+bash
 Copy
 Edit
 cd infra
@@ -58,11 +62,11 @@ terraform apply
 
 
 ### 🚧 Roadmap
- Design UI for infrastructure selection
- Implement file upload and parsing logic
- Cloud optimization recommendation engine
- Terraform deployment integration
- Deploy Streamlit app to cloud
+- Design UI for infrastructure selection
+- Implement file upload and parsing logic
+- Cloud optimization recommendation engine
+- Terraform deployment integration
+- Deploy Streamlit app to cloud
 
 ### 📜 License
 This project is licensed under the MIT License.
