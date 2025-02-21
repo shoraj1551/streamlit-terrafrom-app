@@ -1,0 +1,6 @@
+streamlit
+pandas
+boto3    # If using AWS
+azure-mgmt-resource    # If using Azure
+google-cloud-storage   # If using GCP
+pyyaml
