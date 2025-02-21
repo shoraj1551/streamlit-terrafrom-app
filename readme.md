@@ -44,31 +44,3 @@ cd streamlit-terraform-app'''
   python -m venv venv
   source venv/bin/activate   # On Windows: venv\Scripts\activate
   pip install -r requirements.txt'''
-
-### 4️⃣ Run the Streamlit App
-bash
-Copy
-Edit
-streamlit run app/main.py
-
-### 5️⃣ Terraform Setup & Deployment
-bash
-Copy
-Edit
-cd infra
-terraform init
-terraform plan
-terraform apply
-
-### 🚧 Roadmap
- Design UI for infrastructure selection
- Implement file upload and parsing logic
- Cloud optimization recommendation engine
- Terraform deployment integration
- Deploy Streamlit app to cloud
-
-### 📜 License
-This project is licensed under the MIT License.
-
-### 🤝 Contributing
-Feel free to fork, create feature branches, and submit PRs! 🚀
