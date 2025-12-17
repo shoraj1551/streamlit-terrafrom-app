@@ -4,7 +4,7 @@ Priority Assessment Engine
 Collects user priorities to make intelligent cloud provider recommendations.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from enum import Enum
 import json
 from pathlib import Path
