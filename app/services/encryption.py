@@ -19,7 +19,7 @@ from typing import Union, Optional
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 from app.utils.logger import setup_logger
 
@@ -68,7 +68,7 @@ class EncryptionService:
             # For simplicity, using a fixed salt here
             salt = b"terraform-app-salt-v1"
         
-        kdf = PBKDF2(
+        kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
@@ -272,7 +272,7 @@ def hash_password(password: str, salt: Optional[bytes] = None) -> tuple[str, str
     elif isinstance(salt, str):
         salt = base64.b64decode(salt)
     
-    kdf = PBKDF2(
+    kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
