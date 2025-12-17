@@ -1,9 +1,4 @@
-# Streamlit Terraform Deployer
-
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Terraform](https://img.shields.io/badge/terraform-1.0+-purple.svg)](https://www.terraform.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+c:\Users\SHORAJ TOMER\Terraform-streamlit\streamlit-terrafrom-app-1\README.md
 > **Deploy cloud infrastructure with Terraform through an intuitive Streamlit interface**
 
 A production-ready web application that simplifies cloud infrastructure deployment by providing a user-friendly interface for Terraform operations. Upload your configuration, preview costs, and deploy to AWS with real-time progress tracking.
@@ -63,40 +58,67 @@ export AWS_DEFAULT_REGION="us-east-1"
 
 ## 🚀 Quick Start
 
-### 1. Clone Repository
+### Step 1: Install Prerequisites
+Ensure you have:
+- **Python 3.9 or higher** installed
+- **Terraform 1.0+** installed ([Download](https://developer.hashicorp.com/terraform/install))
+- **AWS CLI** configured ([Setup Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
+
+### Step 2: Configure AWS Credentials
 ```bash
-git clone https://github.com/yourusername/streamlit-terraform-app.git
-cd streamlit-terraform-app
+# Run AWS configure
+aws configure
+
+# Enter your credentials when prompted:
+# AWS Access Key ID: [your-access-key]
+# AWS Secret Access Key: [your-secret-key]
+# Default region: us-east-1
+# Default output format: json
 ```
 
-### 2. Install Dependencies
+### Step 3: Clone and Setup
 ```bash
+# Clone repository
+git clone <your-repo-url>
+cd streamlit-terrafrom-app-1
+
 # Create virtual environment
 python -m venv venv
 
-# Activate (Windows)
+# Activate virtual environment
+# Windows:
 venv\Scripts\activate
-
-# Activate (Linux/Mac)
+# Linux/Mac:
 source venv/bin/activate
 
-# Install packages
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 3. Run Application
+### Step 4: Run the Application
 ```bash
 streamlit run app/main.py
 ```
 
-The app will open at `http://localhost:8501`
+The application will automatically open in your browser at `http://localhost:8501`
 
-### 4. Deploy Infrastructure
-1. Upload `examples/config.json` or create your own
-2. Review configuration and cost estimate
-3. Click **🚀 Deploy Infrastructure**
-4. Monitor real-time progress
-5. View deployment outputs
+### Step 5: Deploy Your First Infrastructure
+1. **Upload Configuration**: Click "Browse files" and select `examples/config.json`
+2. **Review Details**: Check the configuration details, Terraform preview, and cost estimate
+3. **Deploy**: Click the "🚀 Deploy Infrastructure" button
+4. **Monitor Progress**: Watch real-time progress in the sidebar (0% → 100%)
+5. **View Results**: See deployment outputs (Instance ID, Public IP, Private IP)
+6. **Verify**: Check your AWS Console to see the created EC2 instance
+
+### Step 6: Cleanup (Important!)
+After testing, destroy the resources to avoid charges:
+```bash
+# Navigate to deployment directory
+cd deployments/deploy_<timestamp>
+
+# Destroy resources
+terraform destroy -auto-approve
+```
 
 ---
 
