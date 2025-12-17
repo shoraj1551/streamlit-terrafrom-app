@@ -15,6 +15,8 @@ from app.services.terraform_generator import TerraformGenerator
 from app.services.cost_estimator import AWSCostEstimator
 from app.services.deployment_db import DeploymentDatabase
 from app.__version__ import __version__, __app_name__
+from app.services.cloud_provider_factory import CloudProviderFactory
+from app.services.logging import StructuredLogger, LogRetentionPeriod
 
 logger = setup_logger(__name__)
 
@@ -382,24 +384,37 @@ col1, col2 = st.columns([3, 1])
 
 with col1:
     st.markdown("### <span class='step-number'>1</span> Select Cloud Provider", unsafe_allow_html=True)
+    
+    # Get available providers
+    available_providers = CloudProviderFactory.get_available_providers()
+    provider_display = {"aws": "AWS", "azure": "Azure", "gcp": "GCP"}
+    
     cloud_provider = st.selectbox(
         "Choose your cloud platform:",
-        options=["AWS", "Azure", "GCP"],
+        options=[provider_display[p] for p in available_providers],
         help="Select the cloud platform where you want to deploy",
         disabled=st.session_state.deployment_running,
         label_visibility="collapsed"
     )
     
-    # Show warning for non-AWS providers
-    if cloud_provider != "AWS":
-        st.warning(f"⚠️ {cloud_provider} support coming soon. Currently only AWS is supported.")
+    # Store selected provider in session state
+    st.session_state.selected_provider = cloud_provider.lower()
+    
+    # Show provider-specific info
+    provider_info = {
+        "aws": "✅ Amazon Web Services - 10+ regions, t2/t3 instances",
+        "azure": "✅ Microsoft Azure - 24 regions, B/D/E series VMs",
+        "gcp": "✅ Google Cloud Platform - 25+ regions, E2/N1/N2 machines"
+    }
+    st.info(provider_info[st.session_state.selected_provider])
 
 with col2:
     st.markdown("### 📊 Status")
-    if cloud_provider == "AWS":
-        st.success("✅ Ready")
-    else:
-        st.error("❌ Unavailable")
+    st.success("✅ Ready")
+    
+    # Show provider icon
+    provider_icons = {"aws": "☁️", "azure": "🔷", "gcp": "🔶"}
+    st.markdown(f"### {provider_icons[st.session_state.selected_provider]} {cloud_provider}")
 
 st.markdown("---")
 
@@ -451,19 +466,24 @@ if uploaded_file:
                 st.warning(f"⚠️ {str(e)}")
         
         with tab3:
-            if config.provider == "aws":
-                cost_estimate = st.session_state.cost_estimator.estimate_ec2_cost(
-                    config.instance_type
-                )
-                free_tier = st.session_state.cost_estimator.get_free_tier_info(
-                    config.instance_type
-                )
+            # Use cloud provider factory for cost estimation
+            try:
+                provider = CloudProviderFactory.create(st.session_state.selected_provider)
+                config_dict = config.dict()
+                cost_estimate = provider.estimate_cost(config_dict)
                 
-                # Free tier badge
-                if free_tier["eligible"]:
-                    st.success("✅ Free Tier Eligible (750 hours/month for 12 months)")
-                else:
-                    st.info("ℹ️ Not eligible for AWS Free Tier")
+                # Show provider-specific cost info
+                st.markdown(f"### 💰 {provider.name} Cost Estimation")
+                
+                # Free tier info (AWS only for now)
+                if st.session_state.selected_provider == "aws":
+                    free_tier = st.session_state.cost_estimator.get_free_tier_info(
+                        config.instance_type
+                    )
+                    if free_tier["eligible"]:
+                        st.success("✅ Free Tier Eligible (750 hours/month for 12 months)")
+                    else:
+                        st.info("ℹ️ Not eligible for AWS Free Tier")
                 
                 # Cost breakdown
                 col_cost1, col_cost2, col_cost3 = st.columns(3)
@@ -474,10 +494,19 @@ if uploaded_file:
                 with col_cost3:
                     st.metric("Yearly Cost", f"${cost_estimate['total']['yearly']}")
                 
-                st.caption(f"💡 Assumes {cost_estimate['assumptions']['uptime_percentage']}% uptime")
+                # Detailed breakdown
+                with st.expander("📊 Cost Breakdown"):
+                    st.markdown(f"**Compute**: ${cost_estimate['compute']['monthly']}/month")
+                    st.markdown(f"**Storage**: ${cost_estimate['storage']['monthly']}/month ({cost_estimate['storage']['details']})")
+                    st.markdown(f"**Network**: ${cost_estimate['network']['monthly']}/month")
+                    st.caption(f"💡 Assumes {cost_estimate['assumptions']['uptime_percentage']}% uptime")
                 
                 # Store cost estimate
                 st.session_state.cost_estimate = cost_estimate['total']['monthly']
+                
+            except Exception as e:
+                st.error(f"❌ Cost estimation failed: {str(e)}")
+                logger.error(f"Cost estimation error: {e}")
         
         # Store config in session state
         st.session_state.config = config
