@@ -58,8 +58,11 @@ class UserSurvey:
     ]
     
     def __init__(self):
-        self.surveys_file = Path("data/surveys.json")
-        self.surveys_file.parent.mkdir(parents=True, exist_ok=True)
+        # BUG-001 FIX: Ensure data directory exists
+        self.data_dir = Path("data")
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.surveys_file = self.data_dir / "user_surveys.json"
         
         if not self.surveys_file.exists():
             self._save_surveys({})

@@ -223,8 +223,11 @@ class PriorityEngine:
     ]
     
     def __init__(self):
-        self.assessments_file = Path("data/priority_assessments.json")
-        self.assessments_file.parent.mkdir(parents=True, exist_ok=True)
+        # BUG-001 FIX: Ensure data directory exists
+        self.data_dir = Path("data")
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.assessments_file = self.data_dir / "priority_assessments.json"
         
         if not self.assessments_file.exists():
             self._save_assessments({})

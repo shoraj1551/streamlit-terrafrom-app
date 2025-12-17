@@ -17,8 +17,11 @@ class TwoFactorAuth:
     """Two-factor authentication using TOTP"""
     
     def __init__(self):
-        self.secrets_file = Path("data/2fa_secrets.json")
-        self.secrets_file.parent.mkdir(parents=True, exist_ok=True)
+        # BUG-001 FIX: Ensure data directory exists
+        self.data_dir = Path("data")
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.secrets_file = self.data_dir / "2fa_secrets.json"
         
         if not self.secrets_file.exists():
             self._save_secrets({})

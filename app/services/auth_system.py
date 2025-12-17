@@ -19,8 +19,12 @@ class AuthenticationSystem:
     
     def __init__(self, secret_key: str = None):
         self.secret_key = secret_key or secrets.token_urlsafe(32)
-        self.users_file = Path("data/users.json")
-        self.users_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # BUG-001 FIX: Ensure data directory exists
+        self.data_dir = Path("data")
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.users_file = self.data_dir / "users.json"
         
         # Initialize users file if not exists
         if not self.users_file.exists():
