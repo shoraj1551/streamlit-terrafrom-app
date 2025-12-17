@@ -1,4 +1,9 @@
-c:\Users\SHORAJ TOMER\Terraform-streamlit\streamlit-terrafrom-app-1\README.md
+# Streamlit Terraform Deployer v0.3.0
+
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Terraform](https://img.shields.io/badge/terraform-1.0+-purple.svg)](https://www.terraform.io/)
+[![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/yourusername/streamlit-terraform-app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 > **Deploy cloud infrastructure with Terraform through an intuitive Streamlit interface**
 
 A production-ready web application that simplifies cloud infrastructure deployment by providing a user-friendly interface for Terraform operations. Upload your configuration, preview costs, and deploy to AWS with real-time progress tracking.
