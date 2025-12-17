@@ -112,8 +112,9 @@ def main():
         
         # Logout
         if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.authenticated = False
-            st.session_state.user = None
+            # BUG-012 FIX: Clear all session state
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
             st.rerun()
     
     # Header

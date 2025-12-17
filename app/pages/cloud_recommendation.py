@@ -105,6 +105,7 @@ def _render_cost_comparison(analyses: Dict[str, Any]):
     """Render cost comparison charts"""
     
     st.markdown("### 💰 Cost Comparison")
+    st.info("💵 All costs displayed in USD (United States Dollars)")
     
     # Prepare data
     providers = []
@@ -317,9 +318,9 @@ def _render_environment_breakdown(analyses: Dict[str, Any]):
         network_costs = [getattr(analyses[p.lower()], env_key).network_cost for p in providers_list]
         
         fig = go.Figure(data=[
-            go.Bar(name='Compute', x=providers_list, y=compute_costs),
-            go.Bar(name='Storage', x=providers_list, y=storage_costs),
-            go.Bar(name='Network', x=providers_list, y=network_costs)
+            go.Bar(name='Compute', x=providers_list, y=compute_costs, text=[f'${c:.0f}' for c in compute_costs], textposition='inside'),
+            go.Bar(name='Storage', x=providers_list, y=storage_costs, text=[f'${c:.0f}' for c in storage_costs], textposition='inside'),
+            go.Bar(name='Network', x=providers_list, y=network_costs, text=[f'${c:.0f}' for c in network_costs], textposition='inside')
         ])
         
         fig.update_layout(

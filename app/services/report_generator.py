@@ -9,26 +9,47 @@ from datetime import datetime
 from pathlib import Path
 import io
 
-try:
-    from reportlab.lib.pagesizes import letter, A4
-    from reportlab.lib import colors
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-    from reportlab.platypus import Image as RLImage
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-    REPORTLAB_AVAILABLE = True
-except ImportError:
-    REPORTLAB_AVAILABLE = False
-    print("ReportLab not installed. PDF generation will be limited.")
-
 
 class ReportGenerator:
     """Generate PDF reports for cloud analysis"""
     
     def __init__(self):
+        """Initialize report generator"""
         self.reports_dir = Path("data/reports")
         self.reports_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.lib import colors
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+            from reportlab.platypus import Image as RLImage
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            
+            self.reportlab_available = True
+            self.letter = letter
+            self.A4 = A4
+            self.colors = colors
+            self.getSampleStyleSheet = getSampleStyleSheet
+            self.ParagraphStyle = ParagraphStyle
+            self.inch = inch
+            self.SimpleDocTemplate = SimpleDocTemplate
+            self.Table = Table
+            self.TableStyle = TableStyle
+            self.Paragraph = Paragraph
+            self.Spacer = Spacer
+            self.PageBreak = PageBreak
+            self.RLImage = RLImage
+            self.TA_CENTER = TA_CENTER
+            self.TA_LEFT = TA_LEFT
+            self.TA_RIGHT = TA_RIGHT
+            
+        except ImportError as e:
+            self.reportlab_available = False
+            print("⚠️ ReportLab not installed. PDF generation will not be available.")
+            print("📦 To enable PDF reports, install: pip install reportlab")
+            print(f"   Error: {e}")
     
     def generate_comparison_report(
         self,
@@ -43,7 +64,8 @@ class ReportGenerator:
         Returns:
             Path to generated PDF
         """
-        if not REPORTLAB_AVAILABLE:
+        # BUG-009 FIX: Check instance variable
+        if not self.reportlab_available:
             return self._generate_text_report(analyses, recommendation, requirements, user_email)
         
         # Create PDF

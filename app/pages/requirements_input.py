@@ -101,7 +101,8 @@ def _render_natural_language_input(user_email: str) -> Optional[Dict[str, Any]]:
                 st.error("Please provide a more detailed description (at least 50 characters)")
                 return None
             
-            with st.spinner("🤖 AI is analyzing your requirements... This may take 30-60 seconds"):
+            # BUG-011 FIX: Better progress indicator
+            with st.spinner("🤖 AI is analyzing your requirements... Estimated time: 30-60 seconds (first use may take longer)"):
                 try:
                     # Extract requirements
                     requirements = st.session_state.ai_agent.extract_from_natural_language(
