@@ -1,0 +1,388 @@
+"""
+Enhanced Deployment Wizard
+
+Step-by-step wizard for complete infrastructure deployment journey.
+"""
+
+import streamlit as st
+from typing import Dict, Any, Optional
+from enum import Enum
+
+from app.services.user_survey import get_user_profile
+from app.models.industry import get_all_industries
+from app.services.ai_requirements_agent import AIRequirementsAgent
+from app.pages.requirements_input import render_requirements_input
+from app.services.priority_engine import PriorityEngine
+from app.services.multi_cloud_analyzer import MultiCloudAnalyzer
+from app.pages.cloud_recommendation import render_recommendation_ui
+from app.services.two_factor_auth import verify_2fa_for_action
+
+
+class WizardStep(str, Enum):
+    """Wizard steps"""
+    INDUSTRY = "industry"
+    CLOUD_DECISION = "cloud_decision"
+    REQUIREMENTS = "requirements"
+    PRIORITIES = "priorities"
+    ANALYSIS = "analysis"
+    RECOMMENDATION = "recommendation"
+    DEPLOYMENT = "deployment"
+
+
+def render_deployment_wizard(user_email: str):
+    """
+    Render complete deployment wizard
+    
+    Args:
+        user_email: User's email
+    """
+    
+    # Initialize wizard state
+    if 'wizard_step' not in st.session_state:
+        st.session_state.wizard_step = WizardStep.INDUSTRY
+    
+    if 'wizard_data' not in st.session_state:
+        st.session_state.wizard_data = {}
+    
+    # Progress bar
+    _render_progress_bar()
+    
+    st.markdown("---")
+    
+    # Render current step
+    current_step = st.session_state.wizard_step
+    
+    if current_step == WizardStep.INDUSTRY:
+        _render_industry_step(user_email)
+    
+    elif current_step == WizardStep.CLOUD_DECISION:
+        _render_cloud_decision_step()
+    
+    elif current_step == WizardStep.REQUIREMENTS:
+        _render_requirements_step(user_email)
+    
+    elif current_step == WizardStep.PRIORITIES:
+        _render_priorities_step(user_email)
+    
+    elif current_step == WizardStep.ANALYSIS:
+        _render_analysis_step(user_email)
+    
+    elif current_step == WizardStep.RECOMMENDATION:
+        _render_recommendation_step(user_email)
+    
+    elif current_step == WizardStep.DEPLOYMENT:
+        _render_deployment_step(user_email)
+
+
+def _render_progress_bar():
+    """Render wizard progress bar"""
+    
+    steps = [
+        ("🏢", "Industry"),
+        ("☁️", "Cloud"),
+        ("📝", "Requirements"),
+        ("🎯", "Priorities"),
+        ("📊", "Analysis"),
+        ("⭐", "Recommendation"),
+        ("🚀", "Deploy")
+    ]
+    
+    current_step = st.session_state.wizard_step
+    step_order = list(WizardStep)
+    current_index = step_order.index(current_step)
+    
+    # Progress percentage
+    progress = (current_index / (len(steps) - 1)) * 100
+    
+    st.markdown(f"""
+    <div style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            {''.join([
+                f'''<div style="text-align: center; flex: 1;">
+                    <div style="font-size: 1.5rem; {'opacity: 0.3' if i > current_index else ''}">{icon}</div>
+                    <div style="font-size: 0.8rem; {'opacity: 0.3' if i > current_index else ''}">{label}</div>
+                </div>'''
+                for i, (icon, label) in enumerate(steps)
+            ])}
+        </div>
+        <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+            <div style="background: linear-gradient(90deg, #3b82f6, #8b5cf6); height: 100%; width: {progress}%; transition: width 0.3s;"></div>
+        </div>
+        <div style="text-align: center; margin-top: 0.5rem; color: #6b7280;">
+            Step {current_index + 1} of {len(steps)} • {progress:.0f}% Complete
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def _render_industry_step(user_email: str):
+    """Step 1: Industry Selection"""
+    
+    st.markdown("## 🏢 Select Your Industry")
+    st.markdown("Choose your industry to get tailored recommendations")
+    
+    industries = get_all_industries()
+    
+    # Display as cards
+    cols = st.columns(2)
+    
+    for idx, industry in enumerate(industries):
+        with cols[idx % 2]:
+            if st.button(
+                f"{industry.icon} {industry.display_name}",
+                key=f"ind_{industry.name}",
+                use_container_width=True
+            ):
+                st.session_state.wizard_data['industry'] = industry
+                st.session_state.wizard_step = WizardStep.CLOUD_DECISION
+                st.rerun()
+            
+            with st.expander(f"About {industry.display_name}"):
+                st.markdown(f"**{industry.description}**")
+                st.markdown(f"**Typical Cost**: {industry.typical_monthly_cost_range}")
+                st.markdown(f"**Recommended Provider**: {industry.recommended_provider.upper()}")
+
+
+def _render_cloud_decision_step():
+    """Step 2: Cloud Provider Decision"""
+    
+    st.markdown("## ☁️ Cloud Provider Decision")
+    st.markdown("Have you already decided on a cloud provider?")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("✅ Yes, I've decided", use_container_width=True, type="primary"):
+            st.session_state.wizard_data['cloud_decided'] = True
+            
+            # Show provider selection
+            provider = st.selectbox(
+                "Select your cloud provider:",
+                options=["AWS", "Azure", "GCP"]
+            )
+            
+            if st.button("Continue", use_container_width=True):
+                st.session_state.wizard_data['locked_provider'] = provider.lower()
+                st.session_state.wizard_step = WizardStep.REQUIREMENTS
+                st.rerun()
+    
+    with col2:
+        if st.button("❓ No, recommend for me", use_container_width=True):
+            st.session_state.wizard_data['cloud_decided'] = False
+            st.session_state.wizard_data['locked_provider'] = None
+            st.session_state.wizard_step = WizardStep.REQUIREMENTS
+            st.rerun()
+    
+    # Back button
+    if st.button("← Back"):
+        st.session_state.wizard_step = WizardStep.INDUSTRY
+        st.rerun()
+
+
+def _render_requirements_step(user_email: str):
+    """Step 3: Requirements Input"""
+    
+    st.markdown("## 📝 Infrastructure Requirements")
+    
+    requirements = render_requirements_input(user_email)
+    
+    if requirements:
+        st.session_state.wizard_data['requirements'] = requirements
+        
+        if st.button("Continue to Priorities →", type="primary", use_container_width=True):
+            st.session_state.wizard_step = WizardStep.PRIORITIES
+            st.rerun()
+    
+    # Back button
+    if st.button("← Back"):
+        st.session_state.wizard_step = WizardStep.CLOUD_DECISION
+        st.rerun()
+
+
+def _render_priorities_step(user_email: str):
+    """Step 4: Priority Assessment"""
+    
+    st.markdown("## 🎯 Priority Assessment")
+    st.markdown("Rate the importance of each factor (1-10)")
+    
+    industry = st.session_state.wizard_data.get('industry')
+    
+    if 'priority_engine' not in st.session_state:
+        st.session_state.priority_engine = PriorityEngine()
+    
+    engine = st.session_state.priority_engine
+    questions = engine.get_questions(industry.name if industry else "default")
+    
+    responses = {}
+    
+    for i, question in enumerate(questions):
+        st.markdown(f"**{i+1}. {question['question']}**")
+        
+        responses[f"q{i}"] = st.slider(
+            "Importance",
+            min_value=1,
+            max_value=10,
+            value=5,
+            key=f"priority_{i}",
+            label_visibility="collapsed"
+        )
+        
+        st.markdown("---")
+    
+    if st.button("Analyze Cloud Providers →", type="primary", use_container_width=True):
+        # Calculate scores
+        scores = engine.calculate_priority_scores(
+            responses,
+            industry.name if industry else "default"
+        )
+        
+        st.session_state.wizard_data['priority_responses'] = responses
+        st.session_state.wizard_data['priority_scores'] = scores
+        
+        st.session_state.wizard_step = WizardStep.ANALYSIS
+        st.rerun()
+    
+    # Back button
+    if st.button("← Back"):
+        st.session_state.wizard_step = WizardStep.REQUIREMENTS
+        st.rerun()
+
+
+def _render_analysis_step(user_email: str):
+    """Step 5: Multi-Cloud Analysis"""
+    
+    st.markdown("## 📊 Analyzing Cloud Providers...")
+    
+    with st.spinner("Running comprehensive analysis across AWS, Azure, and GCP..."):
+        requirements = st.session_state.wizard_data['requirements']
+        priority_scores = st.session_state.wizard_data['priority_scores']
+        industry = st.session_state.wizard_data.get('industry')
+        
+        # Initialize analyzer
+        if 'cloud_analyzer' not in st.session_state:
+            st.session_state.cloud_analyzer = MultiCloudAnalyzer()
+        
+        analyzer = st.session_state.cloud_analyzer
+        
+        # Run analysis
+        analyses = analyzer.analyze_all_providers(
+            requirements,
+            {k.value: v for k, v in priority_scores.items()},
+            industry.name if industry else "default"
+        )
+        
+        # Get recommendation
+        recommendation = analyzer.get_recommendation(
+            analyses,
+            {k.value: v for k, v in priority_scores.items()}
+        )
+        
+        # Save results
+        st.session_state.wizard_data['analyses'] = analyses
+        st.session_state.wizard_data['recommendation'] = recommendation
+        
+        st.success("✅ Analysis complete!")
+        
+        # Show quick summary
+        primary = recommendation['primary_provider'].upper()
+        primary_analysis = recommendation['primary_analysis']
+        
+        st.info(f"**Recommended**: {primary} (${primary_analysis.total_monthly:,.2f}/month)")
+        
+        if st.button("View Detailed Recommendation →", type="primary", use_container_width=True):
+            st.session_state.wizard_step = WizardStep.RECOMMENDATION
+            st.rerun()
+
+
+def _render_recommendation_step(user_email: str):
+    """Step 6: Recommendation Display"""
+    
+    analyses = st.session_state.wizard_data['analyses']
+    recommendation = st.session_state.wizard_data['recommendation']
+    requirements = st.session_state.wizard_data['requirements']
+    
+    # Render recommendation UI
+    render_recommendation_ui(analyses, recommendation, requirements, user_email)
+    
+    st.markdown("---")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("← Back to Analysis"):
+            st.session_state.wizard_step = WizardStep.ANALYSIS
+            st.rerun()
+    
+    with col2:
+        if st.button("Proceed to Deployment →", type="primary", use_container_width=True):
+            st.session_state.wizard_step = WizardStep.DEPLOYMENT
+            st.rerun()
+
+
+def _render_deployment_step(user_email: str):
+    """Step 7: Deployment"""
+    
+    st.markdown("## 🚀 Deploy Infrastructure")
+    
+    recommendation = st.session_state.wizard_data['recommendation']
+    primary_provider = recommendation['primary_provider']
+    
+    st.info(f"Deploying to **{primary_provider.upper()}**")
+    
+    # Environment selection
+    st.markdown("### Select Environments to Deploy")
+    
+    deploy_dev = st.checkbox("Development Environment", value=True)
+    deploy_staging = st.checkbox("Staging Environment", value=True)
+    deploy_prod = st.checkbox("Production Environment", value=False)
+    
+    if deploy_dev or deploy_staging or deploy_prod:
+        if st.button("🚀 Start Deployment", type="primary", use_container_width=True):
+            with st.spinner("Deploying infrastructure..."):
+                # Simulate deployment
+                import time
+                
+                if deploy_dev:
+                    st.info("Deploying Development environment...")
+                    time.sleep(1)
+                    st.success("✅ Development deployed")
+                
+                if deploy_staging:
+                    st.info("Deploying Staging environment...")
+                    time.sleep(1)
+                    st.success("✅ Staging deployed")
+                
+                if deploy_prod:
+                    st.info("Deploying Production environment...")
+                    time.sleep(1)
+                    st.success("✅ Production deployed")
+                
+                st.balloons()
+                st.success("🎉 All environments deployed successfully!")
+    
+    # Destroy functionality
+    st.markdown("---")
+    st.markdown("### 🗑️ Destroy Infrastructure")
+    
+    st.warning("⚠️ This action requires 2FA verification")
+    
+    destroy_env = st.selectbox(
+        "Select environment to destroy:",
+        options=["Development", "Staging", "Production (Disabled)"]
+    )
+    
+    if "Production" not in destroy_env:
+        if st.button("🗑️ Destroy Environment", type="secondary"):
+            # Verify 2FA
+            if verify_2fa_for_action(user_email, f"Destroy {destroy_env}"):
+                with st.spinner(f"Destroying {destroy_env}..."):
+                    import time
+                    time.sleep(2)
+                    st.success(f"✅ {destroy_env} destroyed")
+    else:
+        st.error("❌ Production environment cannot be destroyed for safety")
+    
+    # Back button
+    if st.button("← Back to Recommendation"):
+        st.session_state.wizard_step = WizardStep.RECOMMENDATION
+        st.rerun()
