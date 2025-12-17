@@ -12,6 +12,8 @@ from config_parser import ConfigParser
 from app.utils.logger import setup_logger
 from app.services.terraform_executor import TerraformExecutor, DeploymentStatus
 from app.services.terraform_generator import TerraformGenerator
+from app.services.cost_estimator import AWSCostEstimator
+from app.services.deployment_db import DeploymentDatabase
 
 logger = setup_logger(__name__)
 
@@ -28,6 +30,10 @@ if 'deployment_state' not in st.session_state:
     st.session_state.deployment_state = None
 if 'deployment_running' not in st.session_state:
     st.session_state.deployment_running = False
+if 'db' not in st.session_state:
+    st.session_state.db = DeploymentDatabase()
+if 'cost_estimator' not in st.session_state:
+    st.session_state.cost_estimator = AWSCostEstimator()
 
 # Title and description
 st.title("☁️ Cloud Infrastructure Deployment")
@@ -65,6 +71,18 @@ with st.sidebar:
         
         st.metric("Progress", f"{st.session_state.deployment_state.progress_percentage}%")
         st.caption(st.session_state.deployment_state.current_step)
+    
+    # Deployment statistics
+    st.markdown("---")
+    st.markdown("### 📊 Statistics")
+    stats = st.session_state.db.get_statistics()
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        st.metric("Total", stats["total_deployments"])
+        st.metric("Success", stats["successful"])
+    with col_s2:
+        st.metric("Failed", stats["failed"])
+        st.metric("Rate", f"{stats['success_rate']}%")
 
 # Main content
 col1, col2 = st.columns([2, 1])
@@ -123,6 +141,36 @@ with col1:
                     st.code(tf_preview, language="hcl")
                 except NotImplementedError as e:
                     st.warning(f"⚠️ {str(e)}")
+            
+            # Show cost estimation
+            if config.provider == "aws":
+                with st.expander("💰 Cost Estimation", expanded=True):
+                    cost_estimate = st.session_state.cost_estimator.estimate_ec2_cost(
+                        config.instance_type
+                    )
+                    free_tier = st.session_state.cost_estimator.get_free_tier_info(
+                        config.instance_type
+                    )
+                    
+                    # Free tier badge
+                    if free_tier["eligible"]:
+                        st.success("✅ Free Tier Eligible (750 hours/month for 12 months)")
+                    else:
+                        st.info("ℹ️ Not eligible for AWS Free Tier")
+                    
+                    # Cost breakdown
+                    col_cost1, col_cost2, col_cost3 = st.columns(3)
+                    with col_cost1:
+                        st.metric("Hourly", f"${cost_estimate['compute']['hourly']}")
+                    with col_cost2:
+                        st.metric("Monthly", f"${cost_estimate['total']['monthly']}")
+                    with col_cost3:
+                        st.metric("Yearly", f"${cost_estimate['total']['yearly']}")
+                    
+                    st.caption(f"💡 Assumes {cost_estimate['assumptions']['uptime_percentage']}% uptime")
+                    
+                    # Store cost estimate
+                    st.session_state.cost_estimate = cost_estimate['total']['monthly']
             
             # Store config in session state
             st.session_state.config = config
@@ -240,6 +288,20 @@ if st.button("🚀 Deploy Infrastructure", type="primary", disabled=deploy_butto
             # Execute
             deployment_state = asyncio.run(run_deployment())
             st.session_state.deployment_state = deployment_state
+            
+            # Save to database
+            try:
+                st.session_state.db.save_deployment(
+                    deployment_state=deployment_state,
+                    provider=config.provider,
+                    region=config.region,
+                    instance_type=config.instance_type,
+                    deployment_dir=str(deployment_dir),
+                    cost_estimate=st.session_state.get('cost_estimate')
+                )
+                logger.info(f"Deployment saved to database: {deployment_state.deployment_id}")
+            except Exception as e:
+                logger.error(f"Failed to save deployment to database: {e}")
             
             # Display results
             progress_placeholder.empty()
