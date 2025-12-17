@@ -1,7 +1,7 @@
 """
-Ultra-Minimal Professional Application
+Professional Infrastructure Platform
 
-True enterprise-grade design - Stripe/Linear/Vercel aesthetic
+Enterprise-grade design based on GitHub/Stripe aesthetic
 """
 
 import streamlit as st
@@ -24,136 +24,229 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Ultra-minimal CSS - True enterprise grade
+# Professional CSS - GitHub/Stripe inspired
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     
     * {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     
-    /* Clean white background */
+    /* Base colors */
     .stApp {
-        background: #ffffff;
+        background: #f7f8fa;
     }
     
     /* Hide Streamlit branding */
     #MainMenu, footer, header {visibility: hidden;}
     
-    /* Minimal header */
-    .minimal-header {
-        padding: 1rem 0;
-        border-bottom: 1px solid #e5e7eb;
-        margin-bottom: 2rem;
+    /* Professional header */
+    .pro-header {
+        background: #ffffff;
+        padding: 1rem 2rem;
+        border-bottom: 1px solid #e1e4e8;
+        margin: -1rem -1rem 0 -1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     
-    .minimal-header h1 {
+    .pro-header h1 {
         font-size: 1.25rem;
         font-weight: 600;
-        color: #000000;
+        color: #24292e;
         margin: 0;
     }
     
-    /* Remove sidebar */
-    [data-testid="stSidebar"] {
-        display: none;
-    }
-    
-    /* Minimal buttons */
-    .stButton>button {
-        background: #000000;
-        color: #ffffff;
-        border: none;
-        border-radius: 6px;
-        padding: 0.5rem 1rem;
+    .pro-header .user-info {
         font-size: 0.875rem;
-        font-weight: 500;
-        transition: opacity 0.2s;
+        color: #586069;
     }
     
-    .stButton>button:hover {
-        opacity: 0.8;
-        background: #000000;
-    }
-    
-    .stButton>button[kind="secondary"] {
-        background: #ffffff;
-        color: #000000;
-        border: 1px solid #e5e7eb;
-    }
-    
-    .stButton>button[kind="secondary"]:hover {
-        background: #f9fafb;
-        border-color: #d1d5db;
-    }
-    
-    /* Clean typography */
-    h1, h2, h3 {
-        color: #000000;
+    /* Typography scale */
+    h1 {
+        font-size: 1.75rem;
         font-weight: 600;
+        color: #24292e;
+        margin-bottom: 0.5rem;
     }
     
     h2 {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #24292e;
         margin-bottom: 0.5rem;
     }
     
     h3 {
-        font-size: 1.125rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #24292e;
         margin-bottom: 0.5rem;
     }
     
     p {
-        color: #6b7280;
+        color: #586069;
         font-size: 0.875rem;
-        line-height: 1.5;
+        line-height: 1.6;
     }
     
-    /* Minimal inputs */
-    .stTextInput>div>div>input {
-        border: 1px solid #e5e7eb;
+    /* Primary buttons - GitHub blue */
+    .stButton>button[kind="primary"] {
+        background: #0366d6;
+        color: #ffffff;
+        border: 1px solid #0366d6;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+    
+    .stButton>button[kind="primary"]:hover {
+        background: #0256c7;
+        border-color: #0256c7;
+    }
+    
+    /* Secondary buttons */
+    .stButton>button {
+        background: #ffffff;
+        color: #24292e;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .stButton>button:hover {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+    }
+    
+    /* Cards */
+    .pro-card {
+        background: #ffffff;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    
+    .pro-card h3 {
+        margin-top: 0;
+    }
+    
+    /* Inputs */
+    .stTextInput>div>div>input,
+    .stSelectbox>div>div>select {
+        border: 1px solid #e1e4e8;
         border-radius: 6px;
         font-size: 0.875rem;
+        background: #ffffff;
+        padding: 0.5rem 0.75rem;
     }
     
-    /* Clean metrics */
-    [data-testid="stMetricValue"] {
-        font-size: 2rem;
-        font-weight: 600;
-        color: #000000;
+    .stTextInput>div>div>input:focus,
+    .stSelectbox>div>div>select:focus {
+        border-color: #0366d6;
+        box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
     }
     
-    [data-testid="stMetricLabel"] {
-        font-size: 0.75rem;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    
-    /* Remove padding */
-    .block-container {
-        padding: 2rem 4rem;
-        max-width: 1200px;
-    }
-    
-    /* Minimal tabs */
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e1e4e8;
+        background: #ffffff;
+        padding: 0 2rem;
+        margin: 0 -2rem 2rem -2rem;
     }
     
     .stTabs [data-baseweb="tab"] {
-        padding: 0.75rem 0;
-        color: #6b7280;
+        padding: 1rem 0;
+        color: #586069;
         font-weight: 500;
+        font-size: 0.875rem;
         border: none;
         background: transparent;
     }
     
     .stTabs [aria-selected="true"] {
-        color: #000000;
-        border-bottom: 2px solid #000000;
+        color: #24292e;
+        border-bottom: 3px solid #0366d6;
+    }
+    
+    /* Container */
+    .block-container {
+        padding: 2rem 4rem;
+        max-width: 1280px;
+    }
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #24292e;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 0.75rem;
+        color: #6a737d;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+    }
+    
+    /* Status badges */
+    .status-success {
+        background: #dcfce7;
+        color: #166534;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .status-warning {
+        background: #fef3c7;
+        color: #92400e;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .status-info {
+        background: #dbeafe;
+        color: #1e40af;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    /* Info boxes */
+    .stInfo {
+        background: #f1f8ff;
+        border-left: 3px solid #0366d6;
+    }
+    
+    .stSuccess {
+        background: #dcfce7;
+        border-left: 3px solid #28a745;
+    }
+    
+    .stWarning {
+        background: #fef3c7;
+        border-left: 3px solid #ffd33d;
+    }
+    
+    .stError {
+        background: #fee;
+        border-left: 3px solid #d73a49;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -170,23 +263,17 @@ def main():
     if not survey_complete:
         return
     
-    # Minimal header
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.markdown(f"""
-        <div class="minimal-header">
-            <h1>Infrastructure Platform</h1>
-        </div>
-        """, unsafe_allow_html=True)
+    # Professional header
+    st.markdown(f"""
+    <div class="pro-header">
+        <h1>Infrastructure Platform</h1>
+        <div class="user-info">{user['full_name']}</div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with col2:
-        st.markdown("<div style='padding-top: 1rem;'></div>", unsafe_allow_html=True)
-        if st.button("Sign Out", type="secondary", use_container_width=True):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
+    st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
     
-    # Minimal navigation
+    # Navigation tabs
     tab1, tab2, tab3 = st.tabs(["Deploy", "Security", "Settings"])
     
     with tab1:
@@ -197,10 +284,18 @@ def main():
     
     with tab3:
         render_settings_page(user['email'])
+    
+    # Sign out in sidebar (minimal)
+    with st.sidebar:
+        st.markdown("---")
+        if st.button("Sign Out", use_container_width=True):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
 
 
 def render_security_page(user_email: str):
-    """Minimal security page"""
+    """Security settings page"""
     st.markdown("## Security")
     st.markdown("Manage authentication and access control")
     st.markdown("")
@@ -209,7 +304,7 @@ def render_security_page(user_email: str):
 
 
 def render_settings_page(user_email: str):
-    """Minimal settings page"""
+    """Settings page"""
     st.markdown("## Settings")
     st.markdown("Account preferences and configuration")
     st.markdown("")
@@ -218,12 +313,15 @@ def render_settings_page(user_email: str):
     
     with st.form("password_form"):
         st.text_input("Current Password", type="password")
-        st.text_input("New Password", type="password")
-        st.text_input("Confirm Password", type="password")
+        st.text_input("New Password", type="password", help="Minimum 8 characters")
+        st.text_input("Confirm New Password", type="password")
         
-        submitted = st.form_submit_button("Update Password")
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            submitted = st.form_submit_button("Update Password", type="primary")
+        
         if submitted:
-            st.success("Password updated")
+            st.success("Password updated successfully")
 
 
 if __name__ == "__main__":
