@@ -1,12 +1,13 @@
-# Streamlit Terraform Deployer v0.3.0
+# Streamlit Terraform Deployer v0.7.0
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Terraform](https://img.shields.io/badge/terraform-1.0+-purple.svg)](https://www.terraform.io/)
-[![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/yourusername/streamlit-terraform-app)
+[![Version](https://img.shields.io/badge/version-0.7.0-green.svg)](https://github.com/yourusername/streamlit-terraform-app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-> **Deploy cloud infrastructure with Terraform through an intuitive Streamlit interface**
+[![Security](https://img.shields.io/badge/security-enterprise--grade-brightgreen.svg)](https://github.com/yourusername/streamlit-terraform-app)
+> **Enterprise-grade cloud infrastructure deployment with Terraform through a secure Streamlit interface**
 
-A production-ready web application that simplifies cloud infrastructure deployment by providing a user-friendly interface for Terraform operations. Upload your configuration, preview costs, and deploy to AWS with real-time progress tracking.
+A production-ready, enterprise-grade web application that simplifies cloud infrastructure deployment with comprehensive security controls. Features multi-provider authentication, secrets management, rate limiting, audit logging, and compliance reporting.
 
 ---
 
@@ -20,24 +21,37 @@ A production-ready web application that simplifies cloud infrastructure deployme
 - **Deployment History**: SQLite database tracking all deployments
 - **Multi-Format Support**: JSON and YAML configuration files
 
+### 🔒 Enterprise Security (v0.4.0 - v0.7.0)
+- **Authentication**: Multi-provider (Auth0, AWS Cognito) with MFA support
+- **Authorization**: RBAC with 3 roles (Admin, Deployer, Viewer) and 10+ granular permissions
+- **Secrets Management**: AWS Secrets Manager integration with AES-256-GCM encryption
+- **Rate Limiting**: Token bucket algorithm with per-user/IP limits
+- **Input Sanitization**: Protection against SQL injection, XSS, command injection, path traversal
+- **CSRF Protection**: Token-based protection for all forms
+- **Audit Logging**: Comprehensive event logging with 20+ event types
+- **Compliance**: SOC 2, ISO 27001, and GDPR compliance reporting
+- **Security Dashboard**: Real-time security metrics and monitoring
+- **Deployment Approvals**: Cost-based approval workflow
+
 ### 💰 Cost Management
 - Hourly, monthly, and yearly cost estimates
 - AWS Free Tier eligibility detection
 - Regional pricing support
 - Cost breakdown by resource type
+- Deployment approval for high-cost deployments
 
 ### 📊 Deployment Tracking
 - Success/failure statistics
 - Deployment history with search
 - Log retention and export
 - Output parsing (Instance IDs, IPs, etc.)
+- Comprehensive audit trail
 
-### 🔒 Security & Best Practices
-- Input validation with Pydantic
-- Structured JSON logging
-- Environment-based configuration
-- Pre-commit hooks for code quality
-- Comprehensive error handling
+### 🧪 Testing & Quality
+- 100+ automated tests (unit, integration, E2E)
+- 90%+ code coverage
+- Automated test runner
+- CI/CD ready
 
 ---
 

@@ -1,8 +1,14 @@
 streamlit>=1.28.0
 pandas>=2.0.0
-boto3>=1.28.0    # If using AWS
+boto3>=1.28.0    # AWS SDK (Cognito, Secrets Manager, etc.)
 azure-mgmt-resource>=23.0.0    # If using Azure
 google-cloud-storage>=2.10.0   # If using GCP
 pyyaml>=6.0.1
 pydantic>=2.0.0
+pydantic-settings>=2.0.0  # Required for Pydantic v2
 python-dotenv>=1.0.0
+
+# Authentication
+PyJWT>=2.8.0  # JWT token validation
+cryptography>=41.0.0  # Required by PyJWT for RSA
+requests>=2.31.0  # HTTP client for Auth0 API calls

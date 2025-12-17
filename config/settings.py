@@ -1,4 +1,13 @@
-from pydantic import BaseSettings, Field, validator
+try:
+    # Pydantic v2
+    from pydantic_settings import BaseSettings
+    from pydantic import Field, field_validator
+    PYDANTIC_V2 = True
+except ImportError:
+    # Pydantic v1 (fallback)
+    from pydantic import BaseSettings, Field, validator
+    PYDANTIC_V2 = False
+
 from typing import Optional, List
 import os
 from enum import Enum
@@ -52,17 +61,32 @@ class Settings(BaseSettings):
     redis_port: int = Field(default=6379)
     redis_db: int = Field(default=0)
     
-    @validator("terraform_state_backend")
-    def validate_state_backend(cls, v, values):
-        if v == "s3" and not values.get("terraform_state_bucket"):
-            raise ValueError("terraform_state_bucket required when using S3 backend")
-        return v
-    
-    @validator("secret_key")
-    def validate_secret_key(cls, v, values):
-        if values.get("environment") == Environment.PRODUCTION and v == "change-me-in-production":
-            raise ValueError("Must set a secure secret_key in production")
-        return v
+    if PYDANTIC_V2:
+        @field_validator("terraform_state_backend")
+        @classmethod
+        def validate_state_backend(cls, v, info):
+            if v == "s3" and not info.data.get("terraform_state_bucket"):
+                raise ValueError("terraform_state_backend required when using S3 backend")
+            return v
+        
+        @field_validator("secret_key")
+        @classmethod
+        def validate_secret_key(cls, v, info):
+            if info.data.get("environment") == Environment.PRODUCTION and v == "change-me-in-production":
+                raise ValueError("Must set a secure secret_key in production")
+            return v
+    else:
+        @validator("terraform_state_backend")
+        def validate_state_backend(cls, v, values):
+            if v == "s3" and not values.get("terraform_state_bucket"):
+                raise ValueError("terraform_state_bucket required when using S3 backend")
+            return v
+        
+        @validator("secret_key")
+        def validate_secret_key(cls, v, values):
+            if values.get("environment") == Environment.PRODUCTION and v == "change-me-in-production":
+                raise ValueError("Must set a secure secret_key in production")
+            return v
     
     class Config:
         env_file = ".env"

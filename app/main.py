@@ -37,6 +37,25 @@ if 'cost_estimator' not in st.session_state:
 
 # Title and description
 st.title("☁️ Cloud Infrastructure Deployment")
+
+# CRITICAL SECURITY WARNING
+st.error("""
+🚨 **SECURITY WARNING - NOT PRODUCTION READY** 🚨
+
+This application is currently in DEVELOPMENT mode with NO AUTHENTICATION enabled.
+Anyone with access to this URL can deploy infrastructure to your AWS account!
+
+**CRITICAL ISSUES:**
+- ❌ No user authentication
+- ❌ No access control
+- ❌ No deployment approvals
+- ❌ No audit logging
+- ❌ Credentials may be exposed
+
+**DO NOT USE IN PRODUCTION** until Phase 1 (Security Hardening) is complete.
+See implementation_plan.md for details.
+""")
+
 st.markdown("""
 Deploy cloud infrastructure with Terraform through an intuitive interface.
 Upload your configuration file and deploy with a single click.
@@ -249,6 +268,42 @@ deploy_button_disabled = (
     or st.session_state.deployment_running
     or (st.session_state.get("config") and st.session_state.config.provider != "aws")
 )
+
+# Add safety confirmation
+if st.session_state.get("config_valid", False) and not st.session_state.deployment_running:
+    st.markdown("### 🛡️ Deployment Safety Check")
+    
+    with st.expander("⚠️ Pre-Deployment Checklist", expanded=True):
+        st.markdown("""
+        Before deploying, please confirm:
+        
+        - [ ] I have reviewed the configuration details above
+        - [ ] I have checked the cost estimate
+        - [ ] I understand this will create REAL AWS resources
+        - [ ] I have AWS credentials properly configured
+        - [ ] I will destroy resources after testing
+        - [ ] I accept responsibility for any AWS charges
+        """)
+        
+        # Cost warning
+        if st.session_state.get('cost_estimate'):
+            monthly_cost = st.session_state.cost_estimate
+            yearly_cost = monthly_cost * 12
+            
+            if monthly_cost > 10:
+                st.warning(f"💰 **Cost Alert**: This deployment costs ~${monthly_cost}/month (${yearly_cost}/year)")
+            
+        # Confirmation checkbox
+        safety_confirmed = st.checkbox(
+            "✅ I have read and confirmed the above checklist",
+            key="safety_confirmation"
+        )
+        
+        if not safety_confirmed:
+            st.info("👆 Please confirm the safety checklist to enable deployment")
+    
+    deploy_button_disabled = deploy_button_disabled or not st.session_state.get("safety_confirmation", False)
+
 
 if st.button("🚀 Deploy Infrastructure", type="primary", disabled=deploy_button_disabled):
     if st.session_state.get("config_valid", False):
