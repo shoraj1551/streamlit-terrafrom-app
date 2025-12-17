@@ -17,6 +17,7 @@ from app.services.deployment_db import DeploymentDatabase
 from app.__version__ import __version__, __app_name__
 from app.services.cloud_provider_factory import CloudProviderFactory
 from app.services.logging import StructuredLogger, LogRetentionPeriod
+from app.models.industry import IndustryType, get_industry_profile, get_all_industries
 
 logger = setup_logger(__name__)
 
@@ -377,13 +378,56 @@ with st.sidebar:
             st.metric("Rate", f"{stats['success_rate']}%")
 
 # Main content
-st.markdown("## 🚀 Deployment Workflow")
+# Industry Selection
+st.markdown("## 🏢 Select Your Industry")
 
-# Step 1: Cloud Provider Selection
+industries = get_all_industries()
+industry_options = {ind.display_name: ind for ind in industries}
+
+selected_industry_name = st.selectbox(
+    "Choose your industry to get tailored recommendations:",
+    options=list(industry_options.keys()),
+    help="We'll optimize infrastructure based on your industry requirements",
+    label_visibility="collapsed"
+)
+
+selected_industry = industry_options[selected_industry_name]
+st.session_state.selected_industry = selected_industry
+
+# Show industry info
+col_ind1, col_ind2, col_ind3 = st.columns(3)
+
+with col_ind1:
+    st.metric("Industry", f"{selected_industry.icon} {selected_industry.display_name}")
+
+with col_ind2:
+    st.metric("Recommended Provider", selected_industry.recommended_provider.upper())
+
+with col_ind3:
+    st.metric("Typical Cost", selected_industry.typical_monthly_cost_range)
+
+with st.expander("📋 Industry Requirements"):
+    col_req1, col_req2 = st.columns(2)
+    
+    with col_req1:
+        st.markdown("**Compliance:**")
+        for comp in selected_industry.compliance_requirements:
+            st.markdown(f"- {comp}")
+    
+    with col_req2:
+        st.markdown("**Key Features:**")
+        for feat in selected_industry.required_features[:4]:
+            st.markdown(f"- {feat}")
+
+st.markdown("---")
+
+st.markdown("## 🚀 Deployment Configuration")
+
+# Cloud Provider Selection
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    st.markdown("### <span class='step-number'>1</span> Select Cloud Provider", unsafe_allow_html=True)
+    st.markdown("### ☁️ Cloud Provider")
     
     # Get available providers
     available_providers = CloudProviderFactory.get_available_providers()
@@ -418,8 +462,8 @@ with col2:
 
 st.markdown("---")
 
-# Step 2: Configuration Upload
-st.markdown("### <span class='step-number'>2</span> Upload Configuration", unsafe_allow_html=True)
+# Configuration Upload
+st.markdown("### 📄 Configuration Upload")
 
 uploaded_file = st.file_uploader(
     "Drop your infrastructure configuration file here",
@@ -552,8 +596,8 @@ if uploaded_file:
 
 st.markdown("---")
 
-# Step 3: Deployment
-st.markdown("### <span class='step-number'>3</span> Deploy Infrastructure", unsafe_allow_html=True)
+# Deployment
+st.markdown("### 🚀 Deploy Infrastructure")
 
 # Safety confirmation
 if st.session_state.get("config_valid", False) and not st.session_state.deployment_running:
