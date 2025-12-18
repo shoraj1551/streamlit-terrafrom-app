@@ -1,14 +1,15 @@
-# Core Dependencies
-streamlit>=1.28.0
-pandas>=2.0.0
+# Core Dependencies (PINNED for security)
+streamlit==1.40.2
+pandas==2.2.3
+plotly==5.24.1
 
-# Authentication & Security
-PyJWT>=2.8.0
-pyotp>=2.9.0
-qrcode[pil]>=7.4.0
+# Authentication & Security (PINNED)
+PyJWT==2.10.1
+pyotp==2.9.0
+qrcode[pil]==8.2
+authlib==1.6.6
 
 # Visualization & Reporting
-plotly>=5.17.0
 reportlab>=4.0.0
 
 # AI/ML (Optional - only if using AI features)
@@ -16,9 +17,6 @@ reportlab>=4.0.0
 # torch>=2.1.0
 # accelerate>=0.25.0
 
-# Cloud Provider SDKs (existing)
-boto3>=1.28.0
-azure-mgmt-compute>=30.0.0
 google-cloud-compute>=1.14.0
 
 # Utilities

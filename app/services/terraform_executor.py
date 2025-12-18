@@ -61,6 +61,29 @@ class DeploymentState:
 class TerraformExecutor:
     """Execute Terraform commands safely with proper error handling"""
     
+    # Whitelist of allowed Terraform resource types
+    ALLOWED_RESOURCES = {
+        "aws_instance",
+        "aws_security_group",
+        "aws_vpc",
+        "aws_subnet",
+        "aws_ebs_volume",
+        "aws_key_pair",
+    }
+    
+    # Blocked provisioners (security risk - can execute arbitrary commands)
+    BLOCKED_PROVISIONERS = {
+        "local-exec",
+        "remote-exec",
+    }
+    
+    # Blocked resource types (security risk)
+    BLOCKED_RESOURCES = {
+        "null_resource",  # Can execute arbitrary commands
+        "external",  # Can execute external programs
+        "local_file",  # Can write arbitrary files
+    }
+    
     def __init__(self, working_dir: str):
         """
         Initialize Terraform executor
@@ -73,6 +96,50 @@ class TerraformExecutor:
             raise ValueError(f"Working directory does not exist: {working_dir}")
         
         logger.info(f"Initialized TerraformExecutor with working_dir: {working_dir}")
+    
+    def validate_variables(self, variables: Dict[str, str]) -> None:
+        """
+        Validate Terraform variables for security
+        
+        Args:
+            variables: Dictionary of Terraform variables
+            
+        Raises:
+            ValueError: If variables contain dangerous patterns
+        """
+        import re
+        
+        for key, value in variables.items():
+            # Validate key format (alphanumeric, underscore, hyphen only)
+            if not re.match(r'^[a-zA-Z0-9_-]+$', key):
+                raise ValueError(f"Invalid variable name: {key}. Only alphanumeric, underscore, and hyphen allowed.")
+            
+            # Validate value (no shell metacharacters)
+            if isinstance(value, str):
+                dangerous_chars = [';', '&', '|', '`', '$', '(', ')', '<', '>', '\n', '\r']
+                for char in dangerous_chars:
+                    if char in value:
+                        raise ValueError(
+                            f"Variable '{key}' contains dangerous character: '{char}'. "
+                            f"This could lead to command injection."
+                        )
+                
+                # Check for command substitution patterns
+                dangerous_patterns = [
+                    r'\$\(',  # $(command)
+                    r'`.*`',  # `command`
+                    r'\|\|',  # ||
+                    r'&&',    # &&
+                ]
+                
+                for pattern in dangerous_patterns:
+                    if re.search(pattern, value):
+                        raise ValueError(
+                            f"Variable '{key}' contains dangerous pattern: {pattern}. "
+                            f"This could lead to command injection."
+                        )
+        
+        logger.info(f"Validated {len(variables)} Terraform variables - all safe")
     
     async def _run_command(
         self,
@@ -176,6 +243,10 @@ class TerraformExecutor:
         """
         logger.info("Running terraform plan")
         
+        # SECURITY: Validate variables before execution
+        if variables:
+            self.validate_variables(variables)
+        
         command = ['terraform', 'plan', '-no-color', '-input=false']
         
         if var_file:
@@ -205,6 +276,10 @@ class TerraformExecutor:
             TerraformResult with apply output
         """
         logger.info("Running terraform apply")
+        
+        # SECURITY: Validate variables before execution
+        if variables:
+            self.validate_variables(variables)
         
         command = ['terraform', 'apply', '-no-color', '-input=false']
         

@@ -78,83 +78,159 @@ class RateLimitBucket:
 
 class RateLimiter:
     """
-    Rate limiter using token bucket algorithm
+    Rate limiter using token bucket algorithm with Redis backend
     
-    Supports multiple rate limit tiers and automatic cleanup of old buckets.
+    Supports multiple rate limit tiers and works across distributed instances.
     """
     
-    def __init__(self):
-        """Initialize rate limiter"""
-        # In-memory storage (use Redis for distributed systems)
-        self._buckets: Dict[str, RateLimitBucket] = {}
+    def __init__(self, use_redis: bool = True):
+        """
+        Initialize rate limiter
+        
+        Args:
+            use_redis: Use Redis for distributed rate limiting (default: True)
+        """
+        self.use_redis = use_redis
+        
+        # Try to initialize Redis client
+        if self.use_redis:
+            try:
+                from app.services.redis_client import get_redis_client
+                self.redis = get_redis_client()
+                logger.info("✅ RateLimiter using Redis for distributed rate limiting")
+            except Exception as e:
+                logger.warning(f"⚠️  Redis not available, falling back to in-memory: {e}")
+                self.use_redis = False
+                self._buckets: Dict[str, RateLimitBucket] = {}
+        else:
+            # In-memory storage (fallback)
+            self._buckets: Dict[str, RateLimitBucket] = {}
+            logger.info("RateLimiter using in-memory storage")
+        
         self._last_cleanup = time.time()
         
         # Rate limit configurations
         self.limits = {
             # Action: (requests_per_minute, burst_capacity)
             "login": (5, 10),  # 5 req/min, burst of 10
-            "deployment": (10, 20),  # 10 req/min, burst of 20
+            "deployment": (5, 10),  # 5 req/min, burst of 10 (reduced from 10/20)
             "config_upload": (20, 40),  # 20 req/min, burst of 40
             "api_call": (60, 100),  # 60 req/min, burst of 100
             "default": (30, 60),  # 30 req/min, burst of 60
         }
-        
-        logger.info("Initialized RateLimiter")
     
     def _get_bucket_key(self, identifier: str, action: str) -> str:
         """Generate bucket key from identifier and action"""
-        return f"{identifier}:{action}"
+        return f"rate_limit:{identifier}:{action}"
+    
+    def _get_bucket_from_redis(self, key: str, action: str) -> Optional[RateLimitBucket]:
+        """Get bucket from Redis"""
+        if not self.use_redis:
+            return None
+        
+        data = self.redis.hgetall(key)
+        if not data:
+            return None
+        
+        try:
+            return RateLimitBucket(
+                capacity=int(data.get(b'capacity', 0)),
+                tokens=float(data.get(b'tokens', 0)),
+                refill_rate=float(data.get(b'refill_rate', 0)),
+                last_refill=float(data.get(b'last_refill', time.time()))
+            )
+        except (ValueError, TypeError) as e:
+            logger.error(f"Error deserializing bucket from Redis: {e}")
+            return None
+    
+    def _save_bucket_to_redis(self, key: str, bucket: RateLimitBucket, ttl: int = 3600):
+        """Save bucket to Redis"""
+        if not self.use_redis:
+            return
+        
+        data = {
+            'capacity': bucket.capacity,
+            'tokens': bucket.tokens,
+            'refill_rate': bucket.refill_rate,
+            'last_refill': bucket.last_refill
+        }
+        
+        # Save each field
+        for field, value in data.items():
+            self.redis.hset(key, field, str(value))
+        
+        # Set expiration
+        self.redis.expire(key, ttl)
     
     def _get_or_create_bucket(self, key: str, action: str) -> RateLimitBucket:
         """Get existing bucket or create new one"""
-        if key not in self._buckets:
-            # Get rate limit config for action
-            requests_per_minute, burst_capacity = self.limits.get(
-                action,
-                self.limits["default"]
-            )
-            
-            # Create new bucket
-            self._buckets[key] = RateLimitBucket(
-                capacity=burst_capacity,
-                tokens=burst_capacity,  # Start with full capacity
-                refill_rate=requests_per_minute / 60.0,  # Convert to per-second
-            )
+        # Try Redis first
+        if self.use_redis:
+            bucket = self._get_bucket_from_redis(key, action)
+            if bucket:
+                return bucket
+        else:
+            # In-memory fallback
+            if key in self._buckets:
+                return self._buckets[key]
         
-        return self._buckets[key]
+        # Create new bucket
+        requests_per_minute, burst_capacity = self.limits.get(
+            action,
+            self.limits["default"]
+        )
+        
+        bucket = RateLimitBucket(
+            capacity=burst_capacity,
+            tokens=burst_capacity,  # Start with full capacity
+            refill_rate=requests_per_minute / 60.0  # Convert to tokens per second
+        )
+        
+        # Save to storage
+        if self.use_redis:
+            self._save_bucket_to_redis(key, bucket)
+        else:
+            self._buckets[key] = bucket
+        
+        return bucket
     
     def check_rate_limit(
         self,
         identifier: str,
         action: str = "default",
-        tokens: int = 1,
+        tokens: int = 1
     ) -> Tuple[bool, Optional[float]]:
         """
         Check if request is within rate limit
         
         Args:
-            identifier: User ID, IP address, or other identifier
+            identifier: Unique identifier (user ID, IP address, etc.)
             action: Action being rate limited
             tokens: Number of tokens to consume (default: 1)
             
         Returns:
-            Tuple of (allowed, retry_after_seconds)
+            Tuple of (allowed: bool, retry_after: Optional[float])
+            - allowed: True if request is allowed
+            - retry_after: Seconds to wait before retry (if not allowed)
         """
-        # Periodic cleanup of old buckets
-        self._cleanup_old_buckets()
-        
-        # Get or create bucket
         key = self._get_bucket_key(identifier, action)
         bucket = self._get_or_create_bucket(key, action)
         
         # Try to consume tokens
         if bucket.consume(tokens):
+            # Save updated bucket state
+            if self.use_redis:
+                self._save_bucket_to_redis(key, bucket)
+            
             logger.debug(f"Rate limit OK: {identifier} - {action}")
             return True, None
         else:
-            # Calculate retry-after time
+            # Rate limit exceeded
             retry_after = bucket.time_until_available(tokens)
-            logger.warning(f"Rate limit exceeded: {identifier} - {action} (retry after {retry_after:.1f}s)")
+            logger.warning(
+                f"Rate limit exceeded: {identifier} - {action} "
+                f"(retry after {retry_after:.1f}s)"
+            )
             return False, retry_after
     
     def _cleanup_old_buckets(self, max_age_seconds: int = 3600):

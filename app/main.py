@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.__version__ import __version__
-from app.services.auth_system import check_authentication
+from app.services.auth0_integration import check_authentication, render_login_page
 from app.services.user_survey import check_survey_completion
 from app.pages.deployment_wizard import render_deployment_wizard
 from app.services.two_factor_auth import render_2fa_setup
