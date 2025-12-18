@@ -145,44 +145,60 @@ class DeploymentQueueManager:
     
     def dequeue(self) -> Optional[QueuedDeployment]:
         """
-        Get next deployment from queue
+        Get next deployment from queue with distributed locking
         
         Returns:
             Next deployment or None if queue is empty or at capacity
         """
+        from app.core.distributed_lock import DistributedLock
+        
         # Check if we're at max concurrent deployments
         active_count = self.get_active_count()
         if active_count >= self.max_concurrent:
             logger.debug(f"At max concurrent deployments ({active_count}/{self.max_concurrent})")
             return None
         
-        # Get highest priority item
-        items = self.redis.zpopmax(self.queue_key, 1)
-        
-        if not items:
-            return None
-        
-        deployment_json, score = items[0]
-        deployment_data = json.loads(deployment_json)
-        
-        # Convert back to QueuedDeployment
-        deployment = QueuedDeployment(
-            deployment_id=deployment_data['deployment_id'],
-            user_email=deployment_data['user_email'],
-            provider=deployment_data['provider'],
-            region=deployment_data['region'],
-            priority=DeploymentPriority(deployment_data['priority']),
-            scheduled_at=datetime.fromisoformat(deployment_data['scheduled_at']) if deployment_data['scheduled_at'] else None,
-            queued_at=datetime.fromisoformat(deployment_data['queued_at']),
-            metadata=deployment_data.get('metadata', {})
+        # Use distributed lock to prevent race conditions
+        lock = DistributedLock(
+            redis_client=self.redis.client,
+            lock_name="deployment_queue_dequeue",
+            timeout=5,
+            blocking=True,
+            blocking_timeout=2
         )
         
-        # Add to active set
-        self.mark_active(deployment.deployment_id)
-        
-        logger.info(f"Dequeued deployment {deployment.deployment_id}")
-        
-        return deployment
+        with lock() as acquired:
+            if not acquired:
+                logger.warning("Could not acquire lock for dequeue operation")
+                return None
+            
+            # Now atomic - get highest priority item
+            items = self.redis.zpopmax(self.queue_key, 1)
+            
+            if not items:
+                return None
+            
+            deployment_json, score = items[0]
+            deployment_data = json.loads(deployment_json)
+            
+            # Convert back to QueuedDeployment
+            deployment = QueuedDeployment(
+                deployment_id=deployment_data['deployment_id'],
+                user_email=deployment_data['user_email'],
+                provider=deployment_data['provider'],
+                region=deployment_data['region'],
+                priority=DeploymentPriority(deployment_data['priority']),
+                scheduled_at=datetime.fromisoformat(deployment_data['scheduled_at']) if deployment_data['scheduled_at'] else None,
+                queued_at=datetime.fromisoformat(deployment_data['queued_at']),
+                metadata=deployment_data.get('metadata', {})
+            )
+            
+            # Add to active set
+            self.mark_active(deployment.deployment_id)
+            
+            logger.info(f"Dequeued deployment {deployment.deployment_id}")
+            
+            return deployment
     
     def mark_active(self, deployment_id: str):
         """Mark deployment as active"""

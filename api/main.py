@@ -112,11 +112,198 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
 
 
-# Health check
+# Health check endpoints
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    """
+    Comprehensive health check
+    
+    Checks all critical dependencies and returns detailed status.
+    """
+    from app.services.deployment_db import DeploymentDatabase
+    from app.services.redis_client import get_redis_client
+    from app.celery_app import celery_app
+    from app.core.circuit_breaker import get_all_circuit_breakers
+    import shutil
+    import psutil
+    
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {},
+        "circuit_breakers": {}
+    }
+    
+    # Database check
+    try:
+        db = DeploymentDatabase()
+        # Simple query to test connection
+        with db.engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health_status["checks"]["database"] = {
+            "status": "healthy",
+            "pool_size": db.engine.pool.size(),
+            "checked_out": db.engine.pool.checkedout()
+        }
+    except Exception as e:
+        health_status["checks"]["database"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+        health_status["status"] = "unhealthy"
+    
+    # Redis check
+    try:
+        redis_client = get_redis_client()
+        redis_client.client.ping()
+        health_status["checks"]["redis"] = {
+            "status": "healthy",
+            "host": redis_client.host,
+            "port": redis_client.port
+        }
+    except Exception as e:
+        health_status["checks"]["redis"] = {
+            "status": "degraded",
+            "error": str(e)
+        }
+        if health_status["status"] == "healthy":
+            health_status["status"] = "degraded"
+    
+    # Celery worker check
+    try:
+        inspect = celery_app.control.inspect()
+        stats = inspect.stats()
+        if stats and len(stats) > 0:
+            health_status["checks"]["celery"] = {
+                "status": "healthy",
+                "workers": len(stats)
+            }
+        else:
+            health_status["checks"]["celery"] = {
+                "status": "degraded",
+                "workers": 0,
+                "message": "No workers available"
+            }
+            if health_status["status"] == "healthy":
+                health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["checks"]["celery"] = {
+            "status": "degraded",
+            "error": str(e)
+        }
+        if health_status["status"] == "healthy":
+            health_status["status"] = "degraded"
+    
+    # Disk space check
+    try:
+        disk = shutil.disk_usage("/")
+        disk_usage_percent = (disk.used / disk.total) * 100
+        
+        if disk_usage_percent > 90:
+            health_status["checks"]["disk"] = {
+                "status": "critical",
+                "usage_percent": round(disk_usage_percent, 1),
+                "free_gb": round(disk.free / (1024**3), 2)
+            }
+            health_status["status"] = "unhealthy"
+        elif disk_usage_percent > 80:
+            health_status["checks"]["disk"] = {
+                "status": "warning",
+                "usage_percent": round(disk_usage_percent, 1),
+                "free_gb": round(disk.free / (1024**3), 2)
+            }
+        else:
+            health_status["checks"]["disk"] = {
+                "status": "healthy",
+                "usage_percent": round(disk_usage_percent, 1),
+                "free_gb": round(disk.free / (1024**3), 2)
+            }
+    except Exception as e:
+        health_status["checks"]["disk"] = {
+            "status": "unknown",
+            "error": str(e)
+        }
+    
+    # Memory check
+    try:
+        memory = psutil.virtual_memory()
+        memory_usage_percent = memory.percent
+        
+        if memory_usage_percent > 90:
+            health_status["checks"]["memory"] = {
+                "status": "critical",
+                "usage_percent": round(memory_usage_percent, 1),
+                "available_gb": round(memory.available / (1024**3), 2)
+            }
+            health_status["status"] = "unhealthy"
+        elif memory_usage_percent > 80:
+            health_status["checks"]["memory"] = {
+                "status": "warning",
+                "usage_percent": round(memory_usage_percent, 1),
+                "available_gb": round(memory.available / (1024**3), 2)
+            }
+        else:
+            health_status["checks"]["memory"] = {
+                "status": "healthy",
+                "usage_percent": round(memory_usage_percent, 1),
+                "available_gb": round(memory.available / (1024**3), 2)
+            }
+    except Exception as e:
+        health_status["checks"]["memory"] = {
+            "status": "unknown",
+            "error": str(e)
+        }
+    
+    # Circuit breaker status
+    health_status["circuit_breakers"] = get_all_circuit_breakers()
+    
+    # Check if any circuit breakers are OPEN
+    for cb_name, cb_state in health_status["circuit_breakers"].items():
+        if cb_state["state"] == "open":
+            health_status["status"] = "degraded"
+            break
+    
+    # Set HTTP status code based on health
+    status_code = 200
+    if health_status["status"] == "unhealthy":
+        status_code = 503
+    elif health_status["status"] == "degraded":
+        status_code = 200  # Still serving traffic
+    
+    return JSONResponse(content=health_status, status_code=status_code)
+
+
+@app.get("/health/ready")
+async def readiness_check():
+    """
+    Kubernetes readiness probe
+    
+    Returns 200 if app can serve traffic, 503 otherwise.
+    """
+    from app.services.deployment_db import DeploymentDatabase
+    
+    try:
+        # Check critical dependencies
+        db = DeploymentDatabase()
+        with db.engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        
+        return {"ready": True, "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        return JSONResponse(
+            content={"ready": False, "error": str(e)},
+            status_code=503
+        )
+
+
+@app.get("/health/live")
+async def liveness_check():
+    """
+    Kubernetes liveness probe
+    
+    Returns 200 if app process is alive.
+    """
+    return {"alive": True, "timestamp": datetime.utcnow().isoformat()}
 
 
 # Authentication endpoints

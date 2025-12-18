@@ -188,14 +188,56 @@ class Database:
             database_url = "sqlite:///./data/deployments.db"
             print("WARNING: Using SQLite. Set DATABASE_URL for PostgreSQL.")
         
-        self.engine = create_engine(
-            database_url,
-            pool_size=10,
-            max_overflow=20,
-            pool_pre_ping=True,  # Verify connections before use
-            pool_recycle=3600,  # Recycle connections after 1 hour
-            echo=False  # Set to True for SQL debugging
-        )
+        # Production-ready connection pool configuration
+        pool_config = {
+            'pool_size': 50,  # Increased from 10 for production load
+            'max_overflow': 100,  # Increased from 20
+            'pool_pre_ping': True,  # Verify connections before use
+            'pool_recycle': 3600,  # Recycle connections after 1 hour
+            'pool_timeout': 30,  # Wait max 30s for connection from pool
+            'echo': False,  # Set to True for SQL debugging
+            'echo_pool': 'debug' if os.getenv('DEBUG') else False  # Pool checkout/checkin logging
+        }
+        
+        # Add PostgreSQL-specific settings
+        if database_url.startswith('postgresql'):
+            pool_config['connect_args'] = {
+                'connect_timeout': 10,  # Connection timeout
+                'application_name': 'terraform_deployment_app',
+                'options': '-c statement_timeout=30000'  # 30s query timeout
+            }
+        
+        self.engine = create_engine(database_url, **pool_config)
+        
+        # Add event listeners for monitoring
+        from sqlalchemy import event
+        
+        @event.listens_for(self.engine, "connect")
+        def receive_connect(dbapi_conn, connection_record):
+            """Set connection parameters on new connections"""
+            if database_url.startswith('postgresql'):
+                cursor = dbapi_conn.cursor()
+                try:
+                    # Set statement timeout for all queries
+                    cursor.execute("SET statement_timeout = 30000")  # 30 seconds
+                    # Set idle in transaction timeout
+                    cursor.execute("SET idle_in_transaction_session_timeout = 60000")  # 60 seconds
+                finally:
+                    cursor.close()
+        
+        @event.listens_for(self.engine, "checkout")
+        def receive_checkout(dbapi_conn, connection_record, connection_proxy):
+            """Log pool checkouts in debug mode"""
+            if os.getenv('DEBUG'):
+                import logging
+                logging.debug(f"Connection checked out from pool")
+        
+        @event.listens_for(self.engine, "checkin")
+        def receive_checkin(dbapi_conn, connection_record):
+            """Log pool checkins in debug mode"""
+            if os.getenv('DEBUG'):
+                import logging
+                logging.debug(f"Connection returned to pool")
         
         self.SessionLocal = sessionmaker(
             autocommit=False,
