@@ -12,7 +12,15 @@ from fastapi.responses import JSONResponse
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from sqlalchemy import text
 
+# Service layer imports
+from app.services.deployment_service import DeploymentService
+from app.services.auth_service import AuthenticationService
+from app.services.config_service import ConfigurationService
+from app.core.di_container import setup_services, get_container
+
+# Legacy imports (for backward compatibility)
 from app.services.auth0_integration import Auth0Service
 from app.services.deployment_db import DeploymentDatabase
 from app.services.deployment_queue import get_queue_manager, DeploymentPriority
@@ -32,6 +40,9 @@ app = FastAPI(
     redoc_url="/api/redoc"
 )
 
+# Initialize DI container
+setup_services()
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -43,7 +54,10 @@ app.add_middleware(
 
 # Security
 security = HTTPBearer()
-auth_service = Auth0Service()
+
+# Include metrics routes
+from api.metrics_routes import router as metrics_router
+app.include_router(metrics_router, tags=["metrics"])
 
 
 # Pydantic Models
@@ -321,7 +335,7 @@ async def create_deployment(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Create new deployment
+    Create new deployment using service layer
     
     Args:
         deployment: Deployment configuration
@@ -330,73 +344,60 @@ async def create_deployment(
     Returns:
         Created deployment information
     """
-    import uuid
+    # Get deployment service from DI container
+    container = get_container()
+    deployment_service = container.resolve(DeploymentService)
     
-    deployment_id = str(uuid.uuid4())
-    user_email = current_user.get("email")
-    
-    # Add to queue
-    queue_manager = get_queue_manager()
-    queue_manager.enqueue(
-        deployment_id=deployment_id,
-        user_email=user_email,
-        provider=deployment.provider,
-        region=deployment.region,
-        priority=deployment.priority,
-        metadata={
-            "instance_type": deployment.instance_type,
-            "variables": deployment.variables
-        }
-    )
-    
-    # Log audit event
-    audit_logger = get_audit_logger()
-    audit_logger.log_event(
-        event_type=AuditEventType.DEPLOY_CREATE,
-        user_id=user_email,
-        resource_type="deployment",
-        resource_id=deployment_id,
-        details={
-            "provider": deployment.provider,
-            "region": deployment.region,
-            "priority": deployment.priority.value
-        },
-        severity=AuditSeverity.INFO
-    )
-    
-    return DeploymentResponse(
-        deployment_id=deployment_id,
-        status="queued",
-        provider=deployment.provider,
-        region=deployment.region,
-        created_at=datetime.utcnow(),
-        user_email=user_email
-    )
+    try:
+        # Create deployment using service
+        deployment_id = deployment_service.create_deployment(
+            user_email=current_user.get("email"),
+            provider=deployment.provider,
+            region=deployment.region,
+            instance_type=deployment.instance_type,
+            variables=deployment.variables,
+            priority=deployment.priority.value
+        )
+        
+        return DeploymentResponse(
+            deployment_id=deployment_id,
+            status="queued",
+            provider=deployment.provider,
+            region=deployment.region,
+            created_at=datetime.utcnow(),
+            user_email=current_user.get("email")
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/api/deployments", response_model=List[DeploymentResponse])
 async def list_deployments(
     limit: int = 50,
     offset: int = 0,
+    status_filter: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """
-    List user's deployments
+    List user's deployments using service layer
     
     Args:
         limit: Maximum number of results
         offset: Offset for pagination
+        status_filter: Optional status filter
         current_user: Current authenticated user
         
     Returns:
         List of deployments
     """
-    db = DeploymentDatabase()
-    user_email = current_user.get("email")
+    container = get_container()
+    deployment_service = container.resolve(DeploymentService)
     
-    deployments = db.get_all_deployments(
-        user_email=user_email,
-        limit=limit
+    deployments = deployment_service.get_user_deployments(
+        user_email=current_user.get("email"),
+        limit=limit,
+        offset=offset,
+        status_filter=status_filter
     )
     
     return [
@@ -418,7 +419,7 @@ async def get_deployment(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Get deployment details
+    Get deployment details using service layer
     
     Args:
         deployment_id: Deployment ID
@@ -427,22 +428,16 @@ async def get_deployment(
     Returns:
         Deployment details
     """
-    # Check cache first
-    cache = get_cache_service()
-    cached_result = cache.get_deployment_result(deployment_id)
+    container = get_container()
+    deployment_service = container.resolve(DeploymentService)
     
-    if cached_result:
-        return cached_result
-    
-    # Get from database
-    db = DeploymentDatabase()
-    deployment = db.get_deployment(deployment_id)
+    deployment = deployment_service.get_deployment(
+        deployment_id=deployment_id,
+        user_email=current_user.get("email")
+    )
     
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
-    
-    # Cache result
-    cache.cache_deployment_result(deployment_id, deployment)
     
     return deployment
 
