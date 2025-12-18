@@ -157,3 +157,48 @@ def inject(service_type: Type):
             return func(service, *args, **kwargs)
         return wrapper
     return decorator
+
+
+def setup_services():
+    """
+    Register all application services in DI container
+    
+    This should be called at application startup.
+    """
+    container = get_container()
+    
+    # Infrastructure services (singletons)
+    from app.services.redis_client import RedisClient
+    from app.services.deployment_db import DeploymentDatabase
+    from app.services.audit_logger import AuditLogger
+    from app.services.cache_service import CacheService
+    from app.services.deployment_queue import DeploymentQueueManager
+    from app.services.query_optimizer import QueryProfiler
+    
+    container.register(RedisClient, singleton=True)
+    container.register(DeploymentDatabase, singleton=True)
+    container.register(AuditLogger, singleton=True)
+    container.register(CacheService, singleton=True)
+    container.register(DeploymentQueueManager, singleton=True)
+    container.register(QueryProfiler, singleton=True)
+    
+    # Business services (transient - new instance each time)
+    from app.services.deployment_service import DeploymentService
+    from app.services.auth_service import AuthenticationService
+    from app.services.config_service import ConfigurationService
+    
+    container.register(DeploymentService, singleton=False)
+    container.register(AuthenticationService, singleton=False)
+    container.register(ConfigurationService, singleton=False)
+    
+    # Auth0 service (singleton)
+    from app.services.auth0_integration import Auth0Service
+    container.register(Auth0Service, singleton=True)
+    
+    # Session manager (singleton)
+    from app.services.session_manager import SessionManager
+    container.register(SessionManager, singleton=True)
+    
+    logger.info("✅ All services registered in DI container")
+    
+    return container
