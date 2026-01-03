@@ -9,99 +9,35 @@ import sys
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+import pandas as pd
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from app.services.deployment_db import DeploymentDatabase
 from app.services.logging import LogRetentionPeriod
+from app.utils.styles import apply_professional_theme
 
 # Page configuration
 st.set_page_config(
-    page_title="Deployment Logs",
+    page_title="Logs - Infrastructure Platform",
     page_icon="📋",
     layout="wide"
 )
 
-# Custom CSS for logs viewer
-st.markdown("""
-<style>
-    /* Animated Gradient Background */
-    .stApp {
-        background: linear-gradient(-45deg, #0f172a, #1e293b, #334155, #1e293b);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
-    }
-    
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    
-    /* Log Entry Styles */
-    .log-entry {
-        font-family: 'Fira Code', monospace;
-        padding: 0.75rem;
-        margin: 0.5rem 0;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        transition: all 0.2s ease;
-    }
-    
-    .log-entry:hover {
-        transform: translateX(5px);
-    }
-    
-    .log-info {
-        background: rgba(59, 130, 246, 0.15);
-        border-left: 4px solid #3b82f6;
-    }
-    
-    .log-warning {
-        background: rgba(251, 191, 36, 0.15);
-        border-left: 4px solid #fbbf24;
-    }
-    
-    .log-error {
-        background: rgba(239, 68, 68, 0.15);
-        border-left: 4px solid #ef4444;
-    }
-    
-    .log-debug {
-        background: rgba(107, 114, 128, 0.15);
-        border-left: 4px solid #6b7280;
-    }
-    
-    .log-timestamp {
-        color: #94a3b8;
-        font-weight: 600;
-    }
-    
-    .log-level {
-        font-weight: 700;
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.8rem;
-    }
-    
-    .level-info { background: #3b82f6; color: white; }
-    .level-warning { background: #fbbf24; color: #1e293b; }
-    .level-error { background: #ef4444; color: white; }
-    .level-debug { background: #6b7280; color: white; }
-</style>
-""", unsafe_allow_html=True)
+# Apply professional styling
+apply_professional_theme()
 
 # Initialize database
 if 'db' not in st.session_state:
     st.session_state.db = DeploymentDatabase()
 
 # Header
-st.title("📋 Deployment Logs")
+st.title("Deployment Logs")
 st.markdown("View and analyze deployment logs with advanced filtering")
 
 # Filters Section
-st.markdown("### 🔍 Filters")
+st.markdown("### Filters")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -136,7 +72,7 @@ with col4:
 
 # Search bar
 search_query = st.text_input(
-    "🔍 Search logs",
+    "Search logs",
     placeholder="Search by message, deployment ID, or any text...",
     key="search_query"
 )
@@ -178,8 +114,8 @@ def get_mock_logs():
             'logger': 'deployment',
             'message': messages[i % len(messages)],
             'deployment_id': f'deploy-{1000 + i}',
-            'cloud_provider': ['aws', 'azure', 'gcp'][i % 3],
-            'environment': ['dev', 'staging', 'prod'][i % 3]
+            'cloud_provider': ['AWS', 'Azure', 'GCP'][i % 3],
+            'environment': ['Development', 'Staging', 'Production'][i % 3]
         })
     
     return logs
@@ -210,37 +146,44 @@ with col_actions3:
 
 st.markdown("---")
 
-# Display logs
+# Display logs using structured dataframe
 if logs:
-    for log in logs:
-        level_class = f"log-{log['level'].lower()}"
-        level_badge_class = f"level-{log['level'].lower()}"
-        timestamp = datetime.fromisoformat(log['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Provider icon
-        provider_icons = {'aws': '☁️', 'azure': '🔷', 'gcp': '🔶'}
-        provider_icon = provider_icons.get(log.get('cloud_provider', ''), '')
-        
-        st.markdown(f"""
-        <div class="log-entry {level_class}">
-            <span class="log-timestamp">{timestamp}</span> | 
-            <span class="log-level {level_badge_class}">{log['level']}</span> | 
-            {provider_icon} <strong>{log.get('cloud_provider', 'N/A').upper()}</strong> | 
-            <span style="color: #94a3b8">{log.get('environment', 'N/A')}</span> | 
-            {log['message']}
-            <br>
-            <small style="color: #64748b">Deployment: {log.get('deployment_id', 'N/A')}</small>
-        </div>
-        """, unsafe_allow_html=True)
+    # Convert logs to DataFrame for better display
+    logs_df = pd.DataFrame([
+        {
+            'Timestamp': datetime.fromisoformat(log['timestamp']).strftime('%Y-%m-%d %H:%M:%S'),
+            'Level': log['level'],
+            'Provider': log.get('cloud_provider', 'N/A'),
+            'Environment': log.get('environment', 'N/A'),
+            'Message': log['message'],
+            'Deployment ID': log.get('deployment_id', 'N/A')
+        }
+        for log in logs
+    ])
+    
+    # Display as dataframe with custom styling
+    st.dataframe(
+        logs_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Timestamp": st.column_config.TextColumn("Timestamp", width="medium"),
+            "Level": st.column_config.TextColumn("Level", width="small"),
+            "Provider": st.column_config.TextColumn("Provider", width="small"),
+            "Environment": st.column_config.TextColumn("Environment", width="medium"),
+            "Message": st.column_config.TextColumn("Message", width="large"),
+            "Deployment ID": st.column_config.TextColumn("Deployment ID", width="medium"),
+        }
+    )
 else:
-    st.info("📭 No logs found matching your filters")
+    st.info("No logs found matching your filters")
 
 # Footer with retention info
 st.markdown("---")
 col_footer1, col_footer2 = st.columns(2)
 
 with col_footer1:
-    st.caption(f"📊 Total deployments: {stats['total_deployments']}")
+    st.caption(f"Total deployments: {stats['total_deployments']}")
 
 with col_footer2:
     retention_days = {
@@ -251,4 +194,4 @@ with col_footer2:
     }
     days = retention_days[retention_period]
     cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-    st.caption(f"🗑️ Logs before {cutoff_date} will be automatically deleted")
+    st.caption(f"Logs before {cutoff_date} will be automatically deleted")

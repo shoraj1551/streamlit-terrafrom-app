@@ -16,6 +16,9 @@ from app.services.auth0_integration import check_authentication, render_login_pa
 from app.services.user_survey import check_survey_completion
 from app.pages.deployment_wizard import render_deployment_wizard
 from app.services.two_factor_auth import render_2fa_setup
+from app.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 st.set_page_config(
     page_title="Infrastructure Platform",

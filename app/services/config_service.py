@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 import os
 
 from app.services.secure_config import SecureConfig
-from app.services.secrets_manager import AWSSecretsManager
+from app.services.secrets_manager import SecretsManager as AWSSecretsManager
 from app.services.audit_logger import get_audit_logger, AuditEventType, AuditSeverity
 from app.utils.logger import setup_logger
 
